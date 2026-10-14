@@ -158,7 +158,7 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       drawer: wide ? null : Drawer(child: drawer),
       appBar: AppBar(
-        title: Text(c.current?.title ?? 'ChatIt', overflow: TextOverflow.ellipsis),
+        title: Text(c.current?.title ?? 'Chat It', overflow: TextOverflow.ellipsis),
         actions: [
           _StatusChip(state: c.state, onTap: c.checkConnection),
           IconButton(
@@ -301,7 +301,7 @@ class _ChatPageState extends State<ChatPage> {
                         ? 'Transcription…'
                         : _imageMode
                             ? 'Décrivez l\'image à créer'
-                            : 'Message ChatIt',
+                            : 'Message Chat It',
                     prefixIcon: _imageMode ? const Icon(Icons.brush, size: 18) : null,
                     border: InputBorder.none,
                   ),

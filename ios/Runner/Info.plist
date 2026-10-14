@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Dictée vocale pour ChatIt</string>
+	<string>Dictée vocale pour Chat It</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Envoyer des photos à ChatIt</string>
+	<string>Envoyer des photos à Chat It</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Joindre des images à ChatIt</string>
+	<string>Joindre des images à Chat It</string>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
@@ -23,7 +23,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ChatIt</string>
+	<string>Chat It</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -37,11 +37,11 @@
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Dictée vocale pour ChatIt</string>
+	<string>Dictée vocale pour Chat It</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Envoyer des photos à ChatIt</string>
+	<string>Envoyer des photos à Chat It</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Joindre des images à ChatIt</string>
+	<string>Joindre des images à Chat It</string>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -49,22 +49,22 @@
 		<key>UISceneConfigurations</key>
 		<dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Dictée vocale pour ChatIt</string>
+	<string>Dictée vocale pour Chat It</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Envoyer des photos à ChatIt</string>
+	<string>Envoyer des photos à Chat It</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Joindre des images à ChatIt</string>
+	<string>Joindre des images à Chat It</string>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 			<key>UIWindowSceneSessionRoleApplication</key>
 			<array>
 				<dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Dictée vocale pour ChatIt</string>
+	<string>Dictée vocale pour Chat It</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Envoyer des photos à ChatIt</string>
+	<string>Envoyer des photos à Chat It</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Joindre des images à ChatIt</string>
+	<string>Joindre des images à Chat It</string>
 	<key>NSAppTransportSecurity</key>
 	<dict><key>NSAllowsArbitraryLoads</key><true/></dict>
 					<key>UISceneClassName</key>

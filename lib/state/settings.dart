@@ -11,7 +11,7 @@ class Settings extends ChangeNotifier {
   String sttModel = 'whisper-1';
   String ttsModel = 'tts-1';
   String ttsVoice = '';
-  String systemPrompt = 'Tu es ChatIt, un assistant utile. Réponds dans la langue de l\'utilisateur.';
+  String systemPrompt = 'Tu es Chat It, un assistant utile. Réponds dans la langue de l\'utilisateur.';
   double temperature = 0.7;
   bool autoSpeak = false;
   bool darkMode = false;

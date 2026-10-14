@@ -31,7 +31,7 @@ class ChatItApp extends StatelessWidget {
     final dark = context.watch<Settings>().darkMode;
     const seed = Color(0xFF1565C0);
     return MaterialApp(
-      title: 'ChatIt',
+      title: 'Chat It',
       debugShowCheckedModeBanner: false,
       themeMode: dark ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(colorSchemeSeed: seed, useMaterial3: true),

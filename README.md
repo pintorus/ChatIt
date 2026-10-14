@@ -1,4 +1,4 @@
-# ChatIt
+# Chat It
 
 Assistant IA façon ChatGPT (Flutter, package `com.devIt.chatit`) qui se connecte à
 [LocalAI](https://github.com/mudler/LocalAI) quand il est démarré.

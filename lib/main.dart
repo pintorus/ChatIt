@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:provider/provider.dart';
 
 import 'data/history_db.dart';
@@ -8,6 +9,8 @@ import 'ui/chat_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Mode vocal notification buttons are relayed from the service isolate.
+  FlutterForegroundTask.initCommunicationPort();
   final settings = Settings();
   await settings.load();
   final db = HistoryDb();

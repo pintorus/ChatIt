@@ -225,11 +225,15 @@ class LocalAIClient {
   }
 
   /// Speech to text (whisper backend).
-  Future<String> transcribe(Uint8List audio, String filename, {String model = 'whisper-1'}) async {
+  /// [language] (ISO 639-1, e.g. `fr`) avoids whisper misdetecting short
+  /// utterances; empty or `auto` lets whisper detect it.
+  Future<String> transcribe(Uint8List audio, String filename,
+      {String model = 'whisper-1', String language = ''}) async {
     final req = http.MultipartRequest('POST', _u('/v1/audio/transcriptions'))
       ..headers.addAll({..._headers}..remove('Content-Type'))
       ..fields['model'] = model
       ..files.add(http.MultipartFile.fromBytes('file', audio, filename: filename));
+    if (language.isNotEmpty && language != 'auto') req.fields['language'] = language;
     final res = await http.Response.fromStream(await req.send());
     _check(res.statusCode, res.body, res.headers);
     return (jsonDecode(res.body)['text'] as String? ?? '').trim();

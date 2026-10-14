@@ -48,6 +48,7 @@ dependencies:
   uuid: ^4.6.0
   syncfusion_flutter_pdf: ^35.1.40
   sqflite: ^2.4.4+2
+  flutter_foreground_task: ^11.0.3
 
 dev_dependencies:
   flutter_test:

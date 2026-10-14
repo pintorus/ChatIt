@@ -9,6 +9,7 @@ class Settings extends ChangeNotifier {
   String chatModel = '';
   String imageModel = '';
   String sttModel = 'whisper-1';
+  String sttLanguage = 'fr';
   String ttsModel = 'tts-1';
   String ttsVoice = '';
   String systemPrompt = 'Tu es Chat It, un assistant utile. Réponds dans la langue de l\'utilisateur.';
@@ -27,6 +28,7 @@ class Settings extends ChangeNotifier {
     chatModel = _p.getString('chatModel') ?? chatModel;
     imageModel = _p.getString('imageModel') ?? imageModel;
     sttModel = _p.getString('sttModel') ?? sttModel;
+    sttLanguage = _p.getString('sttLanguage') ?? sttLanguage;
     ttsModel = _p.getString('ttsModel') ?? ttsModel;
     ttsVoice = _p.getString('ttsVoice') ?? ttsVoice;
     systemPrompt = _p.getString('systemPrompt') ?? systemPrompt;
@@ -43,6 +45,7 @@ class Settings extends ChangeNotifier {
     await _p.setString('chatModel', chatModel);
     await _p.setString('imageModel', imageModel);
     await _p.setString('sttModel', sttModel);
+    await _p.setString('sttLanguage', sttLanguage);
     await _p.setString('ttsModel', ttsModel);
     await _p.setString('ttsVoice', ttsVoice);
     await _p.setString('systemPrompt', systemPrompt);

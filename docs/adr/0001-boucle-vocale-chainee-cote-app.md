@@ -1,0 +1,3 @@
+# Boucle vocale chaînée côté app plutôt que l'API temps réel de LocalAI
+
+Le Mode vocal enchaîne côté app transcription (`/v1/audio/transcriptions`) → chat en streaming → synthèse (`/v1/audio/speech`), avec détection de fin de parole et des interruptions faite localement à partir de l'amplitude du micro. On a écarté `/v1/realtime` (WebSocket, détection de parole côté serveur, latence plus faible) parce qu'il est encore expérimental dans LocalAI et dépend des modèles chargés, alors que la chaîne marche avec n'importe quel serveur qui a déjà whisper et un modèle TTS. Le modèle de domaine (Tour, Interruption, Conversation) ne dépend pas de ce choix : on pourra passer au temps réel sans le changer.

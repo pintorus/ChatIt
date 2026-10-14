@@ -18,6 +18,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final key = TextEditingController(text: s.apiKey);
   late final img = TextEditingController(text: s.imageModel);
   late final stt = TextEditingController(text: s.sttModel);
+  late final lang = TextEditingController(text: s.sttLanguage);
   late final tts = TextEditingController(text: s.ttsModel);
   late final voice = TextEditingController(text: s.ttsVoice);
   late final sys = TextEditingController(text: s.systemPrompt);
@@ -28,6 +29,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ..apiKey = key.text.trim()
       ..imageModel = img.text.trim()
       ..sttModel = stt.text.trim()
+      ..sttLanguage = lang.text.trim().toLowerCase()
       ..ttsModel = tts.text.trim()
       ..ttsVoice = voice.text.trim()
       ..systemPrompt = sys.text;
@@ -95,6 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
         const SizedBox(height: 12),
         field(img, 'Modèle image (ex. stablediffusion)'),
         field(stt, 'Modèle transcription (ex. whisper-1)'),
+        field(lang, 'Langue de transcription (fr, en… ou auto)'),
         field(tts, 'Modèle synthèse vocale (ex. tts-1)'),
         field(voice, 'Voix TTS (optionnelle)'),
         field(sys, 'Instructions système', lines: 4),

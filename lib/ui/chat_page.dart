@@ -20,6 +20,7 @@ import '../state/chat_controller.dart';
 import '../state/settings.dart';
 import 'login_dialog.dart';
 import 'settings_page.dart';
+import 'voice_page.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -134,6 +135,17 @@ class _ChatPageState extends State<ChatPage> {
     } catch (e) {
       _toast('Synthèse vocale : $e');
     }
+  }
+
+  Future<void> _openVoiceMode() async {
+    if (_recording) {
+      await _recorder.cancel();
+      setState(() => _recording = false);
+    }
+    await _player.stop();
+    if (!mounted) return;
+    await Navigator.push(context,
+        MaterialPageRoute(fullscreenDialog: true, builder: (_) => const VoicePage()));
   }
 
   void _scrollToEnd() {
@@ -313,6 +325,13 @@ class _ChatPageState extends State<ChatPage> {
                     color: _recording ? cs.error : null),
                 onPressed: _transcribing ? null : _toggleRecord,
               ),
+              // Mode vocal is Android-only (background mic needs a foreground service).
+              if (!kIsWeb && Platform.isAndroid)
+                IconButton(
+                  tooltip: 'Mode vocal',
+                  icon: const Icon(Icons.graphic_eq),
+                  onPressed: c.busy ? null : _openVoiceMode,
+                ),
               c.busy
                   ? IconButton(icon: const Icon(Icons.stop), onPressed: c.stop)
                   : IconButton.filled(icon: const Icon(Icons.arrow_upward), onPressed: _send),

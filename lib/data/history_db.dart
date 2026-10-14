@@ -87,6 +87,11 @@ class HistoryDb {
       },
       conflictAlgorithm: ConflictAlgorithm.replace);
 
+  Future<void> deleteMessage(String id) => _db.delete('messages', where: 'id = ?', whereArgs: [id]);
+
+  Future<void> updateMessageContent(String id, String content) =>
+      _db.update('messages', {'content': content}, where: 'id = ?', whereArgs: [id]);
+
   Future<void> deleteConversation(String id) =>
       _db.delete('conversations', where: 'id = ?', whereArgs: [id]);
 }

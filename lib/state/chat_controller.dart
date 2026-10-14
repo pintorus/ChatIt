@@ -26,6 +26,7 @@ class ChatController extends ChangeNotifier {
   bool busy = false;
   String? error;
   StreamSubscription<String>? _sub;
+  Completer<void>? _done;
   Timer? _pingTimer;
 
   ChatController(this.db, this.settings)
@@ -101,7 +102,7 @@ class ChatController extends ChangeNotifier {
     await checkConnection();
   }
 
-  String _offlineMessage() => switch (state) {
+  String offlineMessage() => switch (state) {
         ServerState.unauthenticated => 'Connexion à LocalAI requise.',
         ServerState.starting => 'LocalAI démarre (modèles en chargement)…',
         _ => 'LocalAI n\'est pas démarré (${settings.baseUrl}).',
@@ -168,17 +169,21 @@ class ChatController extends ChangeNotifier {
     await db.saveConversation(c);
   }
 
-  Future<void> send(String text, List<Attachment> attachments) async {
-    if (busy || (text.trim().isEmpty && attachments.isEmpty)) return;
+  /// Sends a user message and streams the reply. [extraSystem] is appended to
+  /// the system prompt (Style oral); [onToken] sees each streamed piece.
+  /// Returns the saved reply, or null if nothing came back.
+  Future<ChatMessage?> send(String text, List<Attachment> attachments,
+      {String extraSystem = '', void Function(String)? onToken}) async {
+    if (busy || (text.trim().isEmpty && attachments.isEmpty)) return null;
     if (!online) {
-      error = _offlineMessage();
+      error = offlineMessage();
       notifyListeners();
-      return;
+      return null;
     }
     error = null;
     await _ensureConversation(text);
     await _add(ChatMessage(id: _uuid.v4(), role: 'user', content: text, attachments: attachments));
-    await _complete();
+    return _complete(extraSystem: extraSystem, onToken: onToken);
   }
 
   /// Regenerates the last assistant answer.
@@ -188,22 +193,24 @@ class ChatController extends ChangeNotifier {
     await _complete();
   }
 
-  Future<void> _complete() async {
+  Future<ChatMessage?> _complete({String extraSystem = '', void Function(String)? onToken}) async {
+    final conv = current!;
     final history = messages.where((m) => m.role != 'system').toList();
     final reply = ChatMessage(id: _uuid.v4(), role: 'assistant', content: '');
     messages.add(reply);
     busy = true;
     notifyListeners();
-    final done = Completer<void>();
+    final done = _done = Completer<void>();
     _sub = client
         .chatStream(
           model: settings.chatModel,
           messages: history,
-          systemPrompt: settings.systemPrompt,
+          systemPrompt: [settings.systemPrompt, extraSystem].where((s) => s.isNotEmpty).join('\n\n'),
           temperature: settings.temperature,
         )
         .listen((t) {
       reply.content += t;
+      onToken?.call(t);
       notifyListeners();
     }, onError: (Object e) {
       _handleError(e);
@@ -212,35 +219,48 @@ class ChatController extends ChangeNotifier {
       if (!done.isCompleted) done.complete();
     }, cancelOnError: true);
     await done.future;
-    await _finish(reply);
+    await _finish(conv, reply);
+    return reply.content.isEmpty ? null : reply;
   }
 
-  Future<void> _finish(ChatMessage reply) async {
+  Future<void> _finish(Conversation conv, ChatMessage reply) async {
     _sub = null;
+    _done = null;
     busy = false;
     if (reply.content.isEmpty) {
       messages.remove(reply);
     } else {
-      final c = current!;
-      c.updatedAt = DateTime.now();
-      await db.saveMessage(c.id, reply);
-      await db.saveConversation(c);
+      conv.updatedAt = DateTime.now();
+      await db.saveMessage(conv.id, reply);
+      await db.saveConversation(conv);
     }
     await refreshConversations();
   }
 
+  /// Cancels the reply being streamed; [_complete] then saves what arrived.
   void stop() {
     _sub?.cancel();
-    if (_sub != null && busy && messages.isNotEmpty) {
-      _finish(messages.last);
+    if (_done?.isCompleted == false) _done!.complete();
+  }
+
+  /// Interruption in the Mode vocal: keeps only what was spoken of [reply],
+  /// or drops it when nothing was.
+  Future<void> trimReply(ChatMessage reply, String keep) async {
+    if (keep.isEmpty) {
+      messages.remove(reply);
+      await db.deleteMessage(reply.id);
+    } else {
+      reply.content = keep;
+      await db.updateMessageContent(reply.id, keep);
     }
+    notifyListeners();
   }
 
   /// Generates an image from a prompt and stores it in the conversation.
   Future<void> generateImage(String prompt) async {
     if (busy || prompt.trim().isEmpty) return;
     if (!online) {
-      error = _offlineMessage();
+      error = offlineMessage();
       notifyListeners();
       return;
     }
@@ -268,7 +288,7 @@ class ChatController extends ChangeNotifier {
   }
 
   Future<String> transcribe(Uint8List audio, String filename) =>
-      client.transcribe(audio, filename, model: settings.sttModel);
+      client.transcribe(audio, filename, model: settings.sttModel, language: settings.sttLanguage);
 
   Future<Uint8List> speak(String text) =>
       client.speak(text, model: settings.ttsModel, voice: settings.ttsVoice);

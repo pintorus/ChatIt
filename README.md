@@ -8,7 +8,8 @@ Assistant IA façon ChatGPT (Flutter, package `com.devIt.chatit`) qui se connect
 - **Vision** : joindre des images / photos (modèles multimodaux type llava)
 - **Génération d'images** (`/v1/images/generations`, Stable Diffusion / Flux)
 - **Documents** : PDF, txt, md, csv, code… le texte est injecté dans le prompt
-- **Vocal** : dictée (`/v1/audio/transcriptions`, whisper) et lecture des réponses (`/v1/audio/speech`), lecture auto optionnelle
+- **Vocal** : dictée (`/v1/audio/transcriptions`, whisper) et lecture des réponses (`/v1/audio/speech`), lecture auto optionnelle, langue de transcription réglable
+- **Mode vocal** (Android) : conversation mains libres plein écran façon ChatGPT — écoute continue, interruption de l'assistant en parlant, Orbe animée, « hmm » d'attente, continue en arrière-plan (notification). Vocabulaire dans [CONTEXT.md](CONTEXT.md), choix d'architecture dans [docs/adr](docs/adr/)
 - **Historique** local SQLite : recherche, renommage, suppression, export JSON
 - **Détection de LocalAI** : sonde publique `/readyz` toutes les 15 s, indicateur vert (prêt), jaune (démarrage), orange (connexion requise), rouge (arrêté)
 

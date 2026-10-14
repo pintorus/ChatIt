@@ -7,40 +7,127 @@ import '../models.dart';
 
 /// Client for LocalAI (https://github.com/mudler/LocalAI), which exposes an
 /// OpenAI-compatible REST API.
+/// Server state as seen by ChatIt, following LocalAI's connection policy:
+/// `/readyz` and `/api/auth/status` are public, everything under `/v1` needs
+/// credentials as soon as auth (users DB) or static API keys are enabled.
+enum ServerState { offline, starting, unauthenticated, ready }
+
+class AuthStatus {
+  /// Multi-user auth (DB) enabled: user API keys or email/password sessions.
+  final bool authEnabled;
+
+  /// Legacy mode: server started with `--api-keys` / `LOCALAI_API_KEY`.
+  final bool staticApiKeyRequired;
+  final List<String> providers;
+  final Map<String, dynamic>? user;
+
+  AuthStatus({
+    required this.authEnabled,
+    required this.staticApiKeyRequired,
+    required this.providers,
+    this.user,
+  });
+
+  bool get open => !authEnabled && !staticApiKeyRequired;
+  bool get passwordLogin => providers.contains('local');
+
+  factory AuthStatus.fromJson(Map<String, dynamic> j) => AuthStatus(
+        authEnabled: j['authEnabled'] == true,
+        staticApiKeyRequired: j['staticApiKeyRequired'] == true,
+        providers: ((j['providers'] as List?) ?? []).cast<String>(),
+        user: j['user'] as Map<String, dynamic>?,
+      );
+
+  static final none =
+      AuthStatus(authEnabled: false, staticApiKeyRequired: false, providers: const []);
+}
+
 class LocalAIClient {
   String baseUrl;
+
+  /// Static API key or user API key (sent as `Authorization: Bearer`).
   String? apiKey;
 
-  LocalAIClient({required this.baseUrl, this.apiKey});
+  /// Session id obtained via `/api/auth/login`; LocalAI also accepts it as a
+  /// Bearer token, which avoids cookie/CSRF handling on native clients.
+  String? sessionToken;
+
+  LocalAIClient({required this.baseUrl, this.apiKey, this.sessionToken});
+
+  String? get _bearer => (sessionToken?.isNotEmpty ?? false)
+      ? sessionToken
+      : ((apiKey?.isNotEmpty ?? false) ? apiKey : null);
 
   Uri _u(String path) => Uri.parse('${baseUrl.replaceAll(RegExp(r'/+$'), '')}$path');
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        if (apiKey != null && apiKey!.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+        if (_bearer != null) 'Authorization': 'Bearer $_bearer',
       };
 
-  /// Returns true when LocalAI is started and answering.
-  Future<bool> ping() async {
+  /// Liveness/readiness probe, public on LocalAI (no credentials needed).
+  Future<ServerState> probe() async {
     try {
-      final r = await http
-          .get(_u('/readyz'), headers: _headers)
-          .timeout(const Duration(seconds: 3));
-      if (r.statusCode == 200) return true;
-    } catch (_) {}
-    try {
-      final r = await http
-          .get(_u('/v1/models'), headers: _headers)
-          .timeout(const Duration(seconds: 3));
-      return r.statusCode == 200;
+      final r = await http.get(_u('/readyz')).timeout(const Duration(seconds: 3));
+      if (r.statusCode == 200) return ServerState.ready;
+      if (r.statusCode == 503) return ServerState.starting;
     } catch (_) {
-      return false;
+      return ServerState.offline;
     }
+    // Older LocalAI without /readyz.
+    try {
+      final r = await http.get(_u('/healthz')).timeout(const Duration(seconds: 3));
+      return r.statusCode == 200 ? ServerState.ready : ServerState.offline;
+    } catch (_) {
+      return ServerState.offline;
+    }
+  }
+
+  /// Public endpoint describing which auth mode the server runs in. Returns
+  /// [AuthStatus.none] on servers that predate it.
+  Future<AuthStatus> authStatus() async {
+    try {
+      final r = await http
+          .get(_u('/api/auth/status'), headers: _headers)
+          .timeout(const Duration(seconds: 5));
+      if (r.statusCode == 200) {
+        return AuthStatus.fromJson(jsonDecode(r.body) as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return AuthStatus.none;
+  }
+
+  /// Email/password login. Returns the session id to reuse as Bearer token.
+  Future<String> login(String email, String password) async {
+    final r = await http.post(_u('/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}));
+    _check(r.statusCode, r.body, r.headers);
+    final token = cookieValue(r.headers['set-cookie'], 'session');
+    if (token == null) throw LocalAIException('Session absente de la réponse', 0);
+    sessionToken = token;
+    return token;
+  }
+
+  Future<void> logout() async {
+    try {
+      await http.post(_u('/api/auth/logout'), headers: {
+        ..._headers,
+        if (sessionToken != null) 'Cookie': 'session=$sessionToken',
+      });
+    } catch (_) {}
+    sessionToken = null;
+  }
+
+  static String? cookieValue(String? header, String name) {
+    if (header == null) return null;
+    final m = RegExp('(?:^|[,;]\\s*)$name=([^;,]+)').firstMatch(header);
+    return m?.group(1);
   }
 
   Future<List<String>> listModels() async {
     final r = await http.get(_u('/v1/models'), headers: _headers);
-    _check(r.statusCode, r.body);
+    _check(r.statusCode, r.body, r.headers);
     final data = jsonDecode(r.body)['data'] as List;
     return data.map((m) => m['id'] as String).toList()..sort();
   }
@@ -69,7 +156,7 @@ class LocalAIClient {
     try {
       final res = await client.send(req);
       if (res.statusCode != 200) {
-        _check(res.statusCode, await res.stream.bytesToString());
+        _check(res.statusCode, await res.stream.bytesToString(), res.headers);
       }
       var buffer = '';
       await for (final chunk in res.stream.transform(utf8.decoder)) {
@@ -124,7 +211,7 @@ class LocalAIClient {
           'response_format': 'b64_json',
           if (model != null && model.isNotEmpty) 'model': model,
         }));
-    _check(r.statusCode, r.body);
+    _check(r.statusCode, r.body, r.headers);
     final out = <String>[];
     for (final d in (jsonDecode(r.body)['data'] as List)) {
       if (d['b64_json'] != null) {
@@ -144,7 +231,7 @@ class LocalAIClient {
       ..fields['model'] = model
       ..files.add(http.MultipartFile.fromBytes('file', audio, filename: filename));
     final res = await http.Response.fromStream(await req.send());
-    _check(res.statusCode, res.body);
+    _check(res.statusCode, res.body, res.headers);
     return (jsonDecode(res.body)['text'] as String? ?? '').trim();
   }
 
@@ -157,20 +244,37 @@ class LocalAIClient {
           'input': text,
           if (voice != null && voice.isNotEmpty) 'voice': voice,
         }));
-    _check(r.statusCode, r.body);
+    _check(r.statusCode, r.body, r.headers);
     return r.bodyBytes;
   }
 
-  void _check(int code, String body) {
-    if (code < 200 || code >= 300) {
-      throw LocalAIException('HTTP $code: $body');
+  void _check(int code, String body, [Map<String, String>? headers]) {
+    if (code >= 200 && code < 300) return;
+    String msg = body;
+    try {
+      final j = jsonDecode(body);
+      msg = (j['error'] is Map ? j['error']['message'] : j['error'])?.toString() ?? body;
+    } catch (_) {}
+    switch (code) {
+      case 401:
+        throw LocalAIException('Authentification requise ou identifiants invalides', code);
+      case 403:
+        throw LocalAIException('Accès refusé : $msg', code);
+      case 429:
+        final retry = headers?['retry-after'];
+        throw LocalAIException(
+            'Quota atteint : $msg${retry != null ? ' (réessayer dans ${retry}s)' : ''}', code);
+      default:
+        throw LocalAIException('HTTP $code : $msg', code);
     }
   }
 }
 
 class LocalAIException implements Exception {
   final String message;
-  LocalAIException(this.message);
+  final int statusCode;
+  LocalAIException(this.message, this.statusCode);
+  bool get unauthorized => statusCode == 401;
   @override
   String toString() => message;
 }

@@ -15,8 +15,10 @@ import 'package:record/record.dart';
 
 import '../models.dart';
 import '../services/document_reader.dart';
+import '../services/localai_client.dart';
 import '../state/chat_controller.dart';
 import '../state/settings.dart';
+import 'login_dialog.dart';
 import 'settings_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -158,7 +160,7 @@ class _ChatPageState extends State<ChatPage> {
       appBar: AppBar(
         title: Text(c.current?.title ?? 'ChatIt', overflow: TextOverflow.ellipsis),
         actions: [
-          _StatusChip(online: c.online, onTap: c.checkConnection),
+          _StatusChip(state: c.state, onTap: c.checkConnection),
           IconButton(
               tooltip: 'Nouvelle conversation',
               icon: const Icon(Icons.edit_square),
@@ -184,9 +186,22 @@ class _ChatPageState extends State<ChatPage> {
         if (wide) SizedBox(width: 300, child: Material(elevation: 1, child: drawer)),
         Expanded(
           child: Column(children: [
-            if (!c.online)
+            if (c.state == ServerState.unauthenticated)
               MaterialBanner(
-                content: Text('LocalAI n\'est pas démarré sur ${context.read<Settings>().baseUrl}'),
+                content: Text(c.auth.staticApiKeyRequired
+                    ? 'LocalAI demande une clé API.'
+                    : 'LocalAI demande une connexion (session expirée ou clé invalide).'),
+                leading: const Icon(Icons.lock),
+                actions: [
+                  TextButton(
+                      onPressed: () => showLoginDialog(context), child: const Text('Se connecter')),
+                ],
+              )
+            else if (!c.online)
+              MaterialBanner(
+                content: Text(c.state == ServerState.starting
+                    ? 'LocalAI démarre…'
+                    : 'LocalAI n\'est pas démarré sur ${context.read<Settings>().baseUrl}'),
                 leading: const Icon(Icons.cloud_off),
                 actions: [TextButton(onPressed: c.checkConnection, child: const Text('Réessayer'))],
               ),
@@ -310,18 +325,26 @@ class _ChatPageState extends State<ChatPage> {
 }
 
 class _StatusChip extends StatelessWidget {
-  final bool online;
+  final ServerState state;
   final VoidCallback onTap;
-  const _StatusChip({required this.online, required this.onTap});
+  const _StatusChip({required this.state, required this.onTap});
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-        message: online ? 'LocalAI connecté' : 'LocalAI hors ligne',
-        child: IconButton(
-          onPressed: onTap,
-          icon: Icon(Icons.circle, size: 12, color: online ? Colors.green : Colors.red),
-        ),
-      );
+  Widget build(BuildContext context) {
+    final (label, color) = switch (state) {
+      ServerState.ready => ('LocalAI connecté', Colors.green),
+      ServerState.unauthenticated => ('Connexion requise', Colors.orange),
+      ServerState.starting => ('LocalAI démarre', Colors.amber),
+      ServerState.offline => ('LocalAI hors ligne', Colors.red),
+    };
+    return Tooltip(
+      message: label,
+      child: IconButton(
+        onPressed: state == ServerState.unauthenticated ? () => showLoginDialog(context) : onTap,
+        icon: Icon(Icons.circle, size: 12, color: color),
+      ),
+    );
+  }
 }
 
 class _Welcome extends StatelessWidget {

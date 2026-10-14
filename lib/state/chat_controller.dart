@@ -16,7 +16,9 @@ class ChatController extends ChangeNotifier {
   final Settings settings;
   final LocalAIClient client;
 
-  bool online = false;
+  ServerState state = ServerState.offline;
+  AuthStatus auth = AuthStatus.none;
+  bool get online => state == ServerState.ready;
   List<String> models = [];
   List<Conversation> conversations = [];
   Conversation? current;
@@ -27,7 +29,10 @@ class ChatController extends ChangeNotifier {
   Timer? _pingTimer;
 
   ChatController(this.db, this.settings)
-      : client = LocalAIClient(baseUrl: settings.baseUrl, apiKey: settings.apiKey);
+      : client = LocalAIClient(
+            baseUrl: settings.baseUrl,
+            apiKey: settings.apiKey,
+            sessionToken: settings.sessionToken);
 
   Future<void> init() async {
     await refreshConversations();
@@ -35,26 +40,77 @@ class ChatController extends ChangeNotifier {
     _pingTimer = Timer.periodic(const Duration(seconds: 15), (_) => checkConnection());
   }
 
-  /// Connects to LocalAI only if it is started.
+  /// Connects to LocalAI only if it is started, then checks credentials
+  /// against the server's auth policy.
   Future<void> checkConnection() async {
     client
       ..baseUrl = settings.baseUrl
-      ..apiKey = settings.apiKey;
-    final ok = await client.ping();
-    if (ok && (!online || models.isEmpty)) {
+      ..apiKey = settings.apiKey
+      ..sessionToken = settings.sessionToken;
+    var next = await client.probe();
+    if (next == ServerState.ready) {
+      auth = await client.authStatus();
       try {
-        models = await client.listModels();
-        if (settings.chatModel.isEmpty && models.isNotEmpty) {
-          settings.chatModel = models.first;
-          await settings.save();
+        if (models.isEmpty || state != ServerState.ready) {
+          models = await client.listModels();
+          if (settings.chatModel.isEmpty && models.isNotEmpty) {
+            settings.chatModel = models.first;
+            await settings.save();
+          }
+        } else {
+          // Cheap authenticated call to detect expired sessions/revoked keys.
+          await client.listModels();
+        }
+      } on LocalAIException catch (e) {
+        if (e.unauthorized) {
+          next = ServerState.unauthenticated;
+          models = [];
         }
       } catch (_) {}
     }
-    if (ok != online) {
-      online = ok;
-      notifyListeners();
-    } else if (ok) {
-      notifyListeners();
+    state = next;
+    notifyListeners();
+  }
+
+  Future<void> loginWithPassword(String email, String password) async {
+    final token = await client.login(email, password);
+    settings
+      ..sessionToken = token
+      ..userEmail = email;
+    await settings.save();
+    models = [];
+    await checkConnection();
+  }
+
+  Future<void> loginWithApiKey(String key) async {
+    settings
+      ..apiKey = key
+      ..sessionToken = '';
+    await settings.save();
+    models = [];
+    await checkConnection();
+  }
+
+  Future<void> logout() async {
+    await client.logout();
+    settings
+      ..sessionToken = ''
+      ..userEmail = '';
+    await settings.save();
+    models = [];
+    await checkConnection();
+  }
+
+  String _offlineMessage() => switch (state) {
+        ServerState.unauthenticated => 'Connexion à LocalAI requise.',
+        ServerState.starting => 'LocalAI démarre (modèles en chargement)…',
+        _ => 'LocalAI n\'est pas démarré (${settings.baseUrl}).',
+      };
+
+  void _handleError(Object e) {
+    error = e.toString();
+    if (e is LocalAIException && e.unauthorized) {
+      state = ServerState.unauthenticated;
     }
   }
 
@@ -115,7 +171,7 @@ class ChatController extends ChangeNotifier {
   Future<void> send(String text, List<Attachment> attachments) async {
     if (busy || (text.trim().isEmpty && attachments.isEmpty)) return;
     if (!online) {
-      error = 'LocalAI n\'est pas démarré (${settings.baseUrl}).';
+      error = _offlineMessage();
       notifyListeners();
       return;
     }
@@ -150,7 +206,7 @@ class ChatController extends ChangeNotifier {
       reply.content += t;
       notifyListeners();
     }, onError: (Object e) {
-      error = e.toString();
+      _handleError(e);
       if (!done.isCompleted) done.complete();
     }, onDone: () {
       if (!done.isCompleted) done.complete();
@@ -184,7 +240,7 @@ class ChatController extends ChangeNotifier {
   Future<void> generateImage(String prompt) async {
     if (busy || prompt.trim().isEmpty) return;
     if (!online) {
-      error = 'LocalAI n\'est pas démarré.';
+      error = _offlineMessage();
       notifyListeners();
       return;
     }
@@ -205,7 +261,7 @@ class ChatController extends ChangeNotifier {
             .toList(),
       ));
     } catch (e) {
-      error = e.toString();
+      _handleError(e);
     }
     busy = false;
     await refreshConversations();

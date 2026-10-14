@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Settings extends ChangeNotifier {
   String baseUrl = 'http://localhost:8080';
   String apiKey = '';
+  String sessionToken = '';
+  String userEmail = '';
   String chatModel = '';
   String imageModel = '';
   String sttModel = 'whisper-1';
@@ -20,6 +22,8 @@ class Settings extends ChangeNotifier {
     _p = await SharedPreferences.getInstance();
     baseUrl = _p.getString('baseUrl') ?? baseUrl;
     apiKey = _p.getString('apiKey') ?? apiKey;
+    sessionToken = _p.getString('sessionToken') ?? sessionToken;
+    userEmail = _p.getString('userEmail') ?? userEmail;
     chatModel = _p.getString('chatModel') ?? chatModel;
     imageModel = _p.getString('imageModel') ?? imageModel;
     sttModel = _p.getString('sttModel') ?? sttModel;
@@ -34,6 +38,8 @@ class Settings extends ChangeNotifier {
   Future<void> save() async {
     await _p.setString('baseUrl', baseUrl);
     await _p.setString('apiKey', apiKey);
+    await _p.setString('sessionToken', sessionToken);
+    await _p.setString('userEmail', userEmail);
     await _p.setString('chatModel', chatModel);
     await _p.setString('imageModel', imageModel);
     await _p.setString('sttModel', sttModel);

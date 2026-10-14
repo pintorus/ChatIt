@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../state/chat_controller.dart';
 import '../state/settings.dart';
+import 'login_dialog.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -61,7 +62,27 @@ class _SettingsPageState extends State<SettingsPage> {
         Text('Serveur LocalAI', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         field(url, 'URL (ex. http://192.168.1.10:8080)'),
-        field(key, 'Clé API (optionnelle)', obscure: true),
+        field(key, 'Clé API (statique ou utilisateur, optionnelle)', obscure: true),
+        Card(
+          child: ListTile(
+            leading: Icon(c.online ? Icons.verified_user : Icons.lock_outline),
+            title: Text(!c.auth.authEnabled && !c.auth.staticApiKeyRequired
+                ? 'Serveur sans authentification'
+                : c.auth.staticApiKeyRequired
+                    ? 'Clé API serveur requise'
+                    : 'Comptes utilisateurs activés'),
+            subtitle: Text(s.sessionToken.isNotEmpty
+                ? 'Connecté : ${s.userEmail}'
+                : (c.auth.user?['email'] ?? c.auth.user?['name'] ?? 'Non connecté').toString()),
+            trailing: s.sessionToken.isNotEmpty
+                ? TextButton(onPressed: c.logout, child: const Text('Déconnexion'))
+                : c.auth.open
+                    ? null
+                    : TextButton(
+                        onPressed: () => showLoginDialog(context), child: const Text('Connexion')),
+          ),
+        ),
+        const SizedBox(height: 12),
         Text('Modèles', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(

@@ -110,7 +110,7 @@ flutter_launcher_icons:
   ios: true
   remove_alpha_ios: true
   image_path: assets/icon/chatit.png
-  adaptive_icon_background: "#1565C0"
+  adaptive_icon_background: "#0A1428"
   adaptive_icon_foreground: assets/icon/chatit_foreground.png
   windows:
     generate: true
